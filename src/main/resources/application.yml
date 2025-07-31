@@ -1,0 +1,414 @@
+# ===================================================================
+# AFROSTYLE MONOLITH - CONFIGURATION EXTERNALISÉE
+# ===================================================================
+# Migration complète des constantes BusinessConstants vers YAML
+# Validation automatique avec @ConfigurationProperties
+# ===================================================================
+
+# Configuration Spring Boot de base
+spring:
+  application:
+    name: afrostyle-monolith
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+# Configuration du serveur
+server:
+  port: ${SERVER_PORT:7777}
+
+---
+# ===================================================================
+# PROFIL DE DÉVELOPPEMENT (dev)
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+  
+  # Base de données MySQL - Développement
+  datasource:
+    url: jdbc:mysql://localhost:3306/afrostyle_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: Mascotte1993&
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # Configuration JPA/Hibernate
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+# Configuration AfroStyle Business - EXTERNALISÉE
+afrostyle:
+  # ==================== HEURES D'OUVERTURE ====================
+  business:
+    hours:
+      open-time: "08:00"
+      close-time: "20:00"
+      time-slot-interval-minutes: 15
+      closed-days: [7]  # Dimanche fermé (7 = Dimanche)
+  
+  # ==================== RÉSERVATIONS ====================
+  booking:
+    min-duration-minutes: 15
+    max-duration-minutes: 480  # 8 heures
+    max-services-per-booking: 5
+    min-duration-per-service-minutes: 30
+    cancellation-deadline-hours: 24
+    time-tolerance-minutes: 5
+    max-advance-booking-months: 6
+  
+  # ==================== PAIEMENTS ====================
+  payment:
+    amounts:
+      max-amount: 10000.00
+      min-price-per-service: 5.00
+      minimum-amounts:
+        EUR: 0.50
+        USD: 0.50
+        GBP: 0.30
+        CAD: 0.50
+    supported-currencies: [EUR, USD, GBP, CAD]
+    major-currencies: [EUR, USD, GBP]
+    default-currency: EUR
+    cash-limit-eur: 500.00
+    high-amount-threshold: 1000.00
+  
+  # ==================== UTILISATEURS ====================
+  user:
+    password:
+      min-length: 8
+      max-length: 128
+    profile:
+      max-username-length: 50
+      max-email-length: 100
+      max-full-name-length: 100
+      max-payment-description-length: 200
+  
+  # ==================== SALONS ====================
+  salon:
+    default-name: "AfroStyle Salon"
+    default-address: "Brussels, Belgium"
+    max-salons-per-owner: 10
+  
+  # ==================== NOTIFICATIONS ====================
+  notification:
+    reminder-hours: 24
+    max-attempts: 5
+    retry-delay-minutes: 15
+  
+  # ==================== PAGINATION ====================
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+    default-page-number: 0
+  
+  # ==================== CACHE ====================
+  cache:
+    user-cache-duration-minutes: 30
+    service-cache-duration-hours: 2
+    salon-cache-duration-hours: 4
+  
+  # ==================== VALIDATION ====================
+  validation:
+    max-errors: 10
+    description:
+      min-length: 5
+      max-length: 500
+
+---
+# ===================================================================
+# PROFIL DE PRODUCTION (prod)
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+  
+  # Configuration Azure KeyVault pour production
+  cloud:
+    azure:
+      keyvault:
+        secret:
+          property-sources:
+            - endpoint: https://secretkeyvaultjb.vault.azure.net/
+              name: afrostyle-keyvault
+              case-sensitive: false
+  config:
+    import: optional:azure-keyvault://
+
+# Configuration serveur pour production
+server:
+  port: ${SERVER_PORT:8080}
+
+# Configuration AfroStyle pour production (valeurs renforcées)
+afrostyle:
+  business:
+    hours:
+      open-time: "09:00"
+      close-time: "19:00"
+      time-slot-interval-minutes: 15
+      closed-days: [7]
+  
+  booking:
+    min-duration-minutes: 30     # Plus strict en prod
+    max-duration-minutes: 360    # Limité à 6h en prod
+    max-services-per-booking: 3  # Réduit en prod
+    min-duration-per-service-minutes: 45
+    cancellation-deadline-hours: 48  # Plus strict en prod
+    time-tolerance-minutes: 2        # Plus strict en prod
+    max-advance-booking-months: 3    # Réduit en prod
+  
+  payment:
+    amounts:
+      max-amount: 5000.00      # Réduit en prod
+      min-price-per-service: 10.00  # Plus élevé en prod
+      minimum-amounts:
+        EUR: 1.00            # Plus élevé en prod
+        USD: 1.00
+        GBP: 0.80
+        CAD: 1.30
+    supported-currencies: [EUR, USD, GBP]  # Réduit en prod
+    major-currencies: [EUR, USD, GBP]
+    default-currency: EUR
+    cash-limit-eur: 300.00   # Réduit en prod
+    high-amount-threshold: 500.00  # Réduit en prod
+  
+  pagination:
+    default-page-size: 15    # Réduit en prod
+    max-page-size: 50        # Réduit en prod
+  
+  cache:
+    user-cache-duration-minutes: 15  # Réduit en prod
+    service-cache-duration-hours: 1  # Réduit en prod
+    salon-cache-duration-hours: 2    # Réduit en prod
+
+---
+# ===================================================================
+# PROFIL DOCKER (docker)
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  # Base de données MySQL - Docker Compose
+  datasource:
+    url: jdbc:mysql://afrostyle-mysql:3306/afrostyle_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: ${MdpDB:Mascotte1993&}
+
+# Configuration serveur pour Docker
+server:
+  port: 8080
+
+# Utilise les mêmes valeurs business que le profil dev
+afrostyle:
+  business:
+    hours:
+      open-time: "08:00"
+      close-time: "20:00"
+      time-slot-interval-minutes: 15
+      closed-days: [7]
+  
+  booking:
+    min-duration-minutes: 15
+    max-duration-minutes: 480
+    max-services-per-booking: 5
+    min-duration-per-service-minutes: 30
+    cancellation-deadline-hours: 24
+    time-tolerance-minutes: 5
+    max-advance-booking-months: 6
+  
+  payment:
+    amounts:
+      max-amount: 10000.00
+      min-price-per-service: 5.00
+      minimum-amounts:
+        EUR: 0.50
+        USD: 0.50
+        GBP: 0.30
+        CAD: 0.50
+    supported-currencies: [EUR, USD, GBP, CAD]
+    major-currencies: [EUR, USD, GBP]
+    default-currency: EUR
+    cash-limit-eur: 500.00
+    high-amount-threshold: 1000.00
+  
+  user:
+    password:
+      min-length: 8
+      max-length: 128
+    profile:
+      max-username-length: 50
+      max-email-length: 100
+      max-full-name-length: 100
+      max-payment-description-length: 200
+  
+  salon:
+    default-name: "AfroStyle Salon"
+    default-address: "Brussels, Belgium"
+    max-salons-per-owner: 10
+  
+  notification:
+    reminder-hours: 24
+    max-attempts: 5
+    retry-delay-minutes: 15
+  
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+    default-page-number: 0
+  
+  cache:
+    user-cache-duration-minutes: 30
+    service-cache-duration-hours: 2
+    salon-cache-duration-hours: 4
+  
+  validation:
+    max-errors: 10
+    description:
+      min-length: 5
+      max-length: 500
+
+---
+# ===================================================================
+# CONFIGURATION COMMUNE (tous profils)
+# ===================================================================
+
+# Configuration de sécurité externalisée
+app:
+  security:
+    stripe:
+      secret-key: ${StripeSecret:}
+      publishable-key: ${StripePublique:}
+      webhook-secret: ${WebhookSecret:}
+    email:
+      username: ${EMAIL-USERNAME:}
+      password: ${EMAIL-PASSWORD:}
+    twilio:
+      account-sid: ${TWILIO-ACCOUNT-SID:}
+      auth-token: ${TWILIO-AUTH-TOKEN:}
+      phone-number: ${TWILIO-PHONE-NUMBER:}
+    google:
+      client-secret: ${GOOGLE-CLIENT-SECRET:}
+      maps-api-key: ${GOOGLE-MAPS-API-KEY:}
+
+# Configuration Stripe API
+stripe:
+  api:
+    version: 2025-06-30.basil
+  webhook:
+    migration:
+      enabled: false
+      process-legacy: true
+      process-new: false
+
+# Configuration Redis (optionnelle)
+redis:
+  enabled: false
+spring:
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+# Configuration Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: true
+    mail:
+      enabled: false
+    redis:
+      enabled: false
+
+# Configuration Email
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL-USERNAME:noreply@afrostyle.be}
+    password: ${EMAIL-PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+email:
+  from: ${EMAIL-FROM:noreply@afrostyle.be}
+  from-name: ${EMAIL-FROM-NAME:AfroStyle}
+
+# Configuration SMS (Twilio)
+twilio:
+  account-sid: ${TWILIO-ACCOUNT-SID:}
+  auth-token: ${TWILIO-AUTH-TOKEN:}
+  phone-number: ${TWILIO-PHONE-NUMBER:}
+sms:
+  enabled: ${SMS-ENABLED:false}
+
+# Configuration Google Services  
+google:
+  calendar:
+    enabled: ${GOOGLE-CALENDAR-ENABLED:false}
+    timezone: ${GOOGLE-CALENDAR-TIMEZONE:Europe/Brussels}
+  maps:
+    api-key: ${GOOGLE-MAPS-API-KEY:}
+    enabled: ${GOOGLE-MAPS-ENABLED:false}
+    api:
+      geocode-url: ${GOOGLE_GEOCODE_URL:https://maps.googleapis.com/maps/api/geocode/json}
+      static-map-url: ${GOOGLE_STATICMAP_URL:https://maps.googleapis.com/maps/api/staticmap}
+      directions-url: ${GOOGLE_DIRECTIONS_URL:https://www.google.com/maps/dir/?api=1&destination=}
+      default-zoom: ${GOOGLE_MAPS_DEFAULT_ZOOM:15}
+
+# Configuration Frontend URLs
+app:
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:4200}
+    payment:
+      success-url: ${PAYMENT_SUCCESS_URL:${app.frontend.base-url}/payment/success}
+      cancel-url: ${PAYMENT_CANCEL_URL:${app.frontend.base-url}/payment/cancel}
+  
+  # Configuration CORS
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:3000,https://afrostyle.be,https://*.afrostyle.be}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:Authorization,Content-Type,X-Requested-With,Accept,Origin,Access-Control-Request-Method,Access-Control-Request-Headers}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+    max-age: ${CORS_MAX_AGE:3600}
+
+# Configuration Jackson
+spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+  
+  # Configuration Upload
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+# Configuration Logging
+logging:
+  level:
+    root: INFO
+    com.jb.afrostyle: INFO
+    org.springframework.security: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

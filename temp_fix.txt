@@ -1,0 +1,4 @@
+case read, -> case READ,
+case update, -> case UPDATE,
+case create -> case CREATE
+case delete -> case DELETE
