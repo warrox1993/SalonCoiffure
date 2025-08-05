@@ -3,6 +3,7 @@ package com.jb.afrostyle.serviceoffering.service;
 import com.jb.afrostyle.serviceoffering.modal.ServiceOffering;
 import com.jb.afrostyle.serviceoffering.payload.dto.ServiceDTO;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -28,11 +29,10 @@ public interface ServiceOfferingService {
     ServiceOffering updateService(Long serviceId, ServiceOffering service) throws Exception;
 
     /**
-     * Récupère tous les services, optionnellement filtrés par catégorie
-     * @param categoryId ID de la catégorie (optionnel)
+     * Récupère tous les services du salon
      * @return Set des services
      */
-    Set<ServiceOffering> getAllServicesByCategory(Long categoryId);
+    Set<ServiceOffering> getAllServices();
 
     /**
      * Récupère plusieurs services par leurs IDs
@@ -69,4 +69,12 @@ public interface ServiceOfferingService {
      * @throws Exception si le service n'existe pas
      */
     void deleteService(Long id) throws Exception;
+    
+    /**
+     * Récupère tous les services actifs avec leurs relations (tags + images).
+     * Performance ultra-optimisée pour l'affichage public.
+     * 
+     * @return Services actifs avec relations chargées
+     */
+    List<ServiceOffering> getActiveServicesWithRelations();
 }

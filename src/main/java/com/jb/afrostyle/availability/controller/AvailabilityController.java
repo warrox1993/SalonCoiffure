@@ -1,14 +1,14 @@
 package com.jb.afrostyle.booking.controller;
 
+import com.azure.security.keyvault.jca.implementation.shaded.org.apache.http.protocol.ResponseDate;
 import com.jb.afrostyle.booking.domain.entity.SalonAvailability;
 import com.jb.afrostyle.booking.dto.AvailabilityRequest;
-import com.jb.afrostyle.booking.service.AvailabilityService;
+import com.jb.afrostyle.booking.service.interfaces.AvailabilityService;
 import com.jb.afrostyle.booking.util.BookingResponseHandler;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -26,17 +26,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AvailabilityController {
 
-    private static final Logger log = LoggerFactory.getLogger(AvailabilityController.class);
 
     private final AvailabilityService availabilityService;
     private final BookingResponseHandler responseHandler;
 
     /**
      * Crée un nouveau créneau de disponibilité
-     * Réservé aux admins et staff du salon
+     * Réservé aux admins
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALON_OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALON_OWNER')")
     public ResponseEntity<?> createAvailability(@Valid @RequestBody AvailabilityRequest request) {
         return responseHandler.executeWithErrorHandling("createAvailability", () -> {
             SalonAvailability created = availabilityService.createAvailability(request);
@@ -49,11 +48,10 @@ public class AvailabilityController {
      * Réservé aux admins et staff du salon
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALON_OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALON_OWNER')")
     public ResponseEntity<?> updateAvailability(
             @PathVariable Long id,
             @Valid @RequestBody AvailabilityRequest request) {
-        // REFACTORISÉ : Utilise BookingResponseHandler
         return responseHandler.executeWithErrorHandling("updateAvailability", () -> {
             SalonAvailability updated = availabilityService.updateAvailability(id, request);
             return updated;
@@ -65,13 +63,12 @@ public class AvailabilityController {
      * Réservé aux admins et staff du salon
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALON_OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN','SALON_OWNER')")
     public ResponseEntity<?> deleteAvailability(@PathVariable Long id) {
-        // REFACTORISÉ : Utilise BookingResponseHandler
         return responseHandler.executeWithErrorHandling("deleteAvailability", () -> {
             availabilityService.deleteAvailability(id);
-            return "Availability deleted";
-        }, "Availability deleted successfully");
+            return ResponseEntity.noContent().build();
+        });
     }
 
     /**
@@ -108,19 +105,6 @@ public class AvailabilityController {
         return responseHandler.executeWithErrorHandling("getAvailabilitiesByDate", () -> {
             List<SalonAvailability> availabilities = availabilityService.getAvailabilitiesByDate(date);
             return availabilities;
-        });
-    }
-
-    /**
-     * Récupère les créneaux disponibles pour une date donnée
-     * Public pour réservation
-     */
-    @GetMapping("/available/{date}")
-    public ResponseEntity<?> getAvailableSlotsByDate(
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return responseHandler.executeWithErrorHandling("getAvailableSlotsByDate", () -> {
-            List<SalonAvailability> availableSlots = availabilityService.getAvailableSlotsByDate(date);
-            return availableSlots;
         });
     }
 

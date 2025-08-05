@@ -3,7 +3,7 @@ package com.jb.afrostyle.booking.service.impl;
 import com.jb.afrostyle.booking.domain.entity.SalonAvailability;
 import com.jb.afrostyle.booking.dto.AvailabilityRequest;
 import com.jb.afrostyle.booking.repository.AvailabilityRepository;
-import com.jb.afrostyle.booking.service.AvailabilityService;
+import com.jb.afrostyle.booking.service.interfaces.AvailabilityService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

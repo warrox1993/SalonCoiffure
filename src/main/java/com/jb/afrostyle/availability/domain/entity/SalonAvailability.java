@@ -32,6 +32,7 @@ public class SalonAvailability {
     private boolean isAvailable = true;
 
     @Column(name = "description")
+    @Lob // Utilisé pour les descriptions longues
     private String description;
 
 }

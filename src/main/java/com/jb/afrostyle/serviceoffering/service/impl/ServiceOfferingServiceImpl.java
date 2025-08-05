@@ -50,25 +50,23 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
             var priceValidation = ValidationUtils.validateAmount(
                 serviceDTO.price(), "EUR", "Service price");
                 
-            switch (nameValidation) {
-                case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                    throw ExceptionUtils.createValidationException(
-                        ExceptionUtils.ValidationType.INVALID_FORMAT, "Service name", serviceDTO.name());
-                }
-                case ValidationResult.Success(var validName) -> { /* Continue */ }
+            // PATTERN MODERNE : Validation avec méthodes utilitaires
+            if (nameValidation.isError()) {
+                throw ExceptionUtils.createValidationException(
+                    ExceptionUtils.ValidationType.INVALID_FORMAT, "Service name", serviceDTO.name());
             }
+            String validName = nameValidation.getValueOrThrow(); // Continue
             
-            switch (priceValidation) {
-                case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                    throw ExceptionUtils.createValidationException(
-                        ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service price", serviceDTO.price());
-                }
-                case ValidationResult.Success(var validPrice) -> { /* Continue */ }
+            // PATTERN MODERNE : Validation avec méthodes utilitaires
+            if (priceValidation.isError()) {
+                throw ExceptionUtils.createValidationException(
+                    ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service price", serviceDTO.price());
             }
+            BigDecimal validPrice = priceValidation.getValueOrThrow(); // Continue
             
             // MONO-SALON : Création directe du service, plus de validation catégorie
             ServiceOffering serviceOffering = new ServiceOffering();
-            serviceOffering.setImages(serviceDTO.images());
+            serviceOffering.setLegacyImages(serviceDTO.images());
             serviceOffering.setName(serviceDTO.name());
             serviceOffering.setDescription(serviceDTO.description());
             serviceOffering.setPrice(serviceDTO.price());
@@ -92,16 +90,15 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
     public ServiceOffering updateService(Long serviceId, ServiceOffering service) throws Exception {
         log.info("Updating service with ID: {}", serviceId);
         
-        // Validation avec Java 21 Pattern Matching
+        // PATTERN MODERNE : Validation avec méthodes utilitaires
         var serviceIdValidation = ValidationUtils.validatePositiveId(serviceId, EntityType.SERVICE_OFFERING);
-        switch (serviceIdValidation) {
-            case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                log.error("Service ID validation failed: {}", message);
-                throw ExceptionUtils.createValidationException(
-                    ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service ID", serviceId);
-            }
-            case ValidationResult.Success(var validServiceId) -> { /* Continue */ }
+        if (serviceIdValidation.isError()) {
+            log.error("Service ID validation failed: {}", serviceIdValidation.getErrorMessage());
+            throw ExceptionUtils.createValidationException(
+                ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service ID", serviceId);
         }
+        
+        Long validServiceId = serviceIdValidation.getValueOrThrow(); // Continue
         
         if (service == null) {
             throw ExceptionUtils.createValidationException(
@@ -126,14 +123,13 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
         if (service.getName() != null) {
             var nameValidation = ValidationUtils.validateStringLength(
                 service.getName(), "Service name", 2, 100);
-            switch (nameValidation) {
-                case ValidationResult.Success(var validName) -> {
-                    log.debug("Updating service name: {}", validName);
-                    serviceOffering.setName(validName);
-                }
-                case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                    log.warn("Invalid name provided: {}, keeping existing name", service.getName());
-                }
+            // PATTERN MODERNE : Validation avec méthodes utilitaires
+            if (nameValidation.isSuccess()) {
+                String validName = nameValidation.getValueOrThrow();
+                log.debug("Updating service name: {}", validName);
+                serviceOffering.setName(validName);
+            } else {
+                log.warn("Invalid name provided: {}, keeping existing name", service.getName());
             }
         }
         
@@ -146,14 +142,13 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
         if (service.getPrice() != null) {
             var priceValidation = ValidationUtils.validateAmount(
                 service.getPrice(), "EUR", "Service price");
-            switch (priceValidation) {
-                case ValidationResult.Success(var validPrice) -> {
-                    log.debug("Updating service price: {}", validPrice);
-                    serviceOffering.setPrice(validPrice);
-                }
-                case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                    log.warn("Invalid price provided: {}, keeping existing price", service.getPrice());
-                }
+            // PATTERN MODERNE : Validation avec méthodes utilitaires
+            if (priceValidation.isSuccess()) {
+                BigDecimal validPrice = priceValidation.getValueOrThrow();
+                log.debug("Updating service price: {}", validPrice);
+                serviceOffering.setPrice(validPrice);
+            } else {
+                log.warn("Invalid price provided: {}, keeping existing price", service.getPrice());
             }
         }
         
@@ -180,13 +175,81 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
      * Récupère tous les services du salon
      */
     @Override
-    public Set<ServiceOffering> getAllServicesByCategory(Long categoryId) {
-        log.info("Fetching all services (category filter ignored)");
+    public Set<ServiceOffering> getAllServices() {
+        log.info("Fetching all services");
 
-        // MONO-SALON : Plus de filtre par catégorie, on retourne tous les services
+        // MONO-SALON : Tous les services du salon unique
         Set<ServiceOffering> services = Set.copyOf(serviceOfferingRepository.findAll());
 
         log.info("Found {} services", services.size());
+        return services;
+    }
+    
+    // =========================
+    // NOUVELLES MÉTHODES JPA OPTIMISÉES - ARCHITECTURE TFE
+    // =========================
+    
+    /**
+     * Récupère tous les services actifs avec leurs relations (tags + images).
+     * Performance ultra-optimisée pour l'affichage public.
+     * 
+     * @return Services actifs avec relations chargées
+     */
+    public List<ServiceOffering> getActiveServicesWithRelations() {
+        log.info("Fetching active services with relations for public display");
+        return serviceOfferingRepository.findActiveWithRelations();
+    }
+    
+    /**
+     * Récupère un service avec ses relations (tags + images).
+     * Performance optimisée - évite les requêtes N+1.
+     * 
+     * @param id ID du service
+     * @return Service avec relations chargées
+     * @throws Exception Si service introuvable
+     */
+    public ServiceOffering getServiceWithRelations(Long id) throws Exception {
+        log.debug("Fetching service with relations - ID: {}", id);
+        
+        var validationResult = ValidationUtils.validatePositiveId(id, EntityType.SERVICE_OFFERING);
+        if (validationResult.isError()) {
+            throw ExceptionUtils.createValidationException(
+                ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service ID", id);
+        }
+        
+        Long validId = validationResult.getValueOrThrow();
+        return serviceOfferingRepository.findByIdWithRelations(validId)
+                .map(service -> {
+                    log.debug("Service with relations found: {} (tags: {}, images: {})", 
+                             service.getName(), service.getTags().size(), service.getImages().size());
+                    return service;
+                })
+                .orElseThrow(() -> {
+                    log.warn("Service not found with ID: {}", validId);
+                    return ExceptionUtils.createNotFoundException(EntityType.SERVICE_OFFERING, validId);
+                });
+    }
+    
+    /**
+     * Récupère plusieurs services avec leurs relations (ultra-optimisé).
+     * Performance maximale - 1 seule requête pour tout charger.
+     * 
+     * @param ids IDs des services
+     * @return Services avec relations chargées
+     */
+    public List<ServiceOffering> getServicesByIdsWithRelations(Set<Long> ids) {
+        log.info("Fetching {} services with relations (ultra-optimized)", ids.size());
+        
+        var idsValidation = ValidationUtils.validateNotEmptyCollection(ids, "Service IDs");
+        if (idsValidation.isError()) {
+            log.warn("Invalid service IDs: {}", idsValidation.getErrorMessage());
+            return List.of();
+        }
+        
+        // PERFORMANCE MAXIMALE : 1 requête pour services + tags + images
+        List<ServiceOffering> services = serviceOfferingRepository.findByIdInWithRelations(ids);
+        
+        log.info("Found {} services with full relations loaded", services.size());
         return services;
     }
 
@@ -200,39 +263,39 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
 
         // Validation avec Java 21 Pattern Matching
         var idsValidation = ValidationUtils.validateNotEmptyCollection(ids, "Service IDs");
-        return switch (idsValidation) {
-            case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                log.warn("Service IDs validation failed: {}", message);
-                yield new HashSet<>();
-            }
-            case ValidationResult.Success(var validIds) -> {
-                // Validate all IDs are positive avec Stream et Pattern Matching
-                var filteredIds = validIds.stream()
-                    .filter(id -> switch (id) {
-                        case null -> {
-                            log.warn("Null ID found in service IDs set, skipping");
-                            yield false;
-                        }
-                        case Long idValue when idValue <= 0 -> {
-                            log.warn("Invalid service ID found: {}, skipping", idValue);
-                            yield false;
-                        }
-                        case Long validId -> true;
-                    })
-                    .collect(Collectors.toSet());
-                    
-                if (filteredIds.isEmpty()) {
-                    log.warn("No valid service IDs after filtering");
-                    yield new HashSet<>();
+        // PATTERN MODERNE : Validation avec méthodes utilitaires
+        if (idsValidation.isError()) {
+            log.warn("Service IDs validation failed: {}", idsValidation.getErrorMessage());
+            return new HashSet<>();
+        }
+        
+        Set<Long> validIds = new HashSet<>(idsValidation.getValueOrThrow());
+        
+        // Validate all IDs are positive avec Stream et Pattern Matching
+        var filteredIds = validIds.stream()
+            .filter(id -> switch (id) {
+                case null -> {
+                    log.warn("Null ID found in service IDs set, skipping");
+                    yield false;
                 }
-                
-                List<ServiceOffering> services = serviceOfferingRepository.findAllById(filteredIds);
-                Set<ServiceOffering> result = new HashSet<>(services);
-                
-                log.info("Found {} services out of {} requested", result.size(), filteredIds.size());
-                yield result;
-            }
-        };
+                case Long idValue when idValue <= 0 -> {
+                    log.warn("Invalid service ID found: {}, skipping", idValue);
+                    yield false;
+                }
+                case Long validId -> true;
+            })
+            .collect(Collectors.toSet());
+            
+        if (filteredIds.isEmpty()) {
+            log.warn("No valid service IDs after filtering");
+            return new HashSet<>();
+        }
+        
+        List<ServiceOffering> services = serviceOfferingRepository.findAllById(filteredIds);
+        Set<ServiceOffering> result = new HashSet<>(services);
+        
+        log.info("Found {} services out of {} requested", result.size(), filteredIds.size());
+        return result;
     }
 
     /**
@@ -244,14 +307,14 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
         
         // Validation avec Java 21 Pattern Matching
         var idValidation = ValidationUtils.validatePositiveId(id, EntityType.SERVICE_OFFERING);
-        switch (idValidation) {
-            case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                log.error("Service ID validation failed: {}", message);
-                throw ExceptionUtils.createValidationException(
-                    ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service ID", id);
-            }
-            case ValidationResult.Success(var validId) -> { /* Continue */ }
+        // PATTERN MODERNE : Validation avec méthodes utilitaires
+        if (idValidation.isError()) {
+            log.error("Service ID validation failed: {}", idValidation.getErrorMessage());
+            throw ExceptionUtils.createValidationException(
+                ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service ID", id);
         }
+        
+        Long validId = idValidation.getValueOrThrow(); // Continue
 
         ServiceOffering serviceOffering = serviceOfferingRepository.findById(id)
             .map(foundService -> {
@@ -264,11 +327,25 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
     }
 
     /**
-     * Récupère plusieurs services par leurs IDs (méthode alternative)
+     * OPTIMISÉ : Récupère plusieurs services par leurs IDs (performance JPA).
+     * Remplace N requêtes individuelles par 1 seule requête IN.
      */
     @Override
     public Set<ServiceOffering> getServicesByIds(Set<Long> ids) {
-        return getServiceById(ids); // Déléguer à la méthode corrigée ci-dessus
+        log.info("Fetching {} services with optimized query", ids.size());
+        
+        // Validation avec Java 21 Pattern Matching
+        var idsValidation = ValidationUtils.validateNotEmptyCollection(ids, "Service IDs");
+        if (idsValidation.isError()) {
+            log.warn("Invalid service IDs provided: {}", idsValidation.getErrorMessage());
+            return new HashSet<>();
+        }
+        
+        // OPTIMISATION JPA : 1 requête IN au lieu de N requêtes individuelles
+        List<ServiceOffering> services = serviceOfferingRepository.findByIdIn(ids);
+        
+        log.info("Found {} services out of {} requested", services.size(), ids.size());
+        return new HashSet<>(services);
     }
 
     /**
@@ -289,14 +366,14 @@ public class ServiceOfferingServiceImpl implements ServiceOfferingService {
         
         // Validation avec Java 21 Pattern Matching
         var idValidation = ValidationUtils.validatePositiveId(id, EntityType.SERVICE_OFFERING);
-        switch (idValidation) {
-            case ValidationResult.Error(var message, var cause, ignored1, ignored2, ignored3) -> {
-                log.error("Service ID validation failed for deletion: {}", message);
-                throw ExceptionUtils.createValidationException(
-                    ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service ID", id);
-            }
-            case ValidationResult.Success(var validId) -> { /* Continue */ }
+        // PATTERN MODERNE : Validation avec méthodes utilitaires
+        if (idValidation.isError()) {
+            log.error("Service ID validation failed for deletion: {}", idValidation.getErrorMessage());
+            throw ExceptionUtils.createValidationException(
+                ExceptionUtils.ValidationType.NEGATIVE_VALUE, "Service ID", id);
         }
+        
+        Long validId = idValidation.getValueOrThrow(); // Continue
 
         ServiceOffering serviceOffering = serviceOfferingRepository.findById(id)
             .map(foundService -> {

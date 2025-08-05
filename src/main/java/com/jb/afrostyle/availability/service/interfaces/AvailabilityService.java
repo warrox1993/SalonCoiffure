@@ -1,4 +1,4 @@
-package com.jb.afrostyle.booking.service;
+package com.jb.afrostyle.booking.service.interfaces;
 
 import com.jb.afrostyle.booking.domain.entity.SalonAvailability;
 import com.jb.afrostyle.booking.dto.AvailabilityRequest;

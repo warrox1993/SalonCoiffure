@@ -14,4 +14,9 @@ public interface UserService{
     User findByGoogleId(String googleId);
     User findByUsername(String username);
     User save(User user);
+    
+    // Méthodes JPA optimisées ajoutées dans l'implémentation
+    User getUserWithProfile(Long id) throws UserException;
+    User getUserWithFavorites(Long id) throws UserException;
+    List<User> getAllUsersWithProfiles();
 }

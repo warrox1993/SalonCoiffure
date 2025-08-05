@@ -77,4 +77,38 @@ public interface AuthService {
      * Récupère l'utilisateur connecté
      */
     UserDTO getCurrentUser(String username) throws Exception;
+    
+    // =========================
+    // NOUVELLES MÉTHODES JPA OPTIMISÉES - ARCHITECTURE TFE
+    // =========================
+    
+    /**
+     * OPTIMISÉ : Récupère l'utilisateur connecté sans conversion DTO.
+     * Performance améliorée - retourne directement l'entité JPA.
+     * 
+     * @param username Username de l'utilisateur
+     * @return Entité User JPA
+     * @throws Exception Si utilisateur introuvable
+     */
+    com.jb.afrostyle.user.domain.entity.User getCurrentUserEntity(String username) throws Exception;
+    
+    /**
+     * OPTIMISÉ : Enregistre un utilisateur et retourne l'entité JPA.
+     * Performance améliorée - pas de conversion DTO finale.
+     * 
+     * @param registerRequest Données d'inscription
+     * @return Entité User JPA créée
+     * @throws Exception Si erreur de validation ou création
+     */
+    com.jb.afrostyle.user.domain.entity.User registerUserEntity(RegisterRequest registerRequest) throws Exception;
+    
+    /**
+     * OPTIMISÉ : Authentifie et récupère l'entité User JPA directement.
+     * Performance améliorée - combine authentification et récupération entité.
+     * 
+     * @param loginRequest Données de connexion
+     * @return Entité User JPA authentifiée
+     * @throws Exception Si authentification échoue
+     */
+    com.jb.afrostyle.user.domain.entity.User authenticateAndGetUserEntity(LoginRequest loginRequest) throws Exception;
 }
